@@ -1,3 +1,6 @@
+1、WebGL 是一组基于 JavaScript 语言的图形规范，浏览器厂商按照这组规范进行实现，为 Web 开发者提供一套3D图形相关的 API。这些 API 能够让 Web 开发者使用 JavaScript 语言直接和显卡（GPU）进行通信。当然 WebGL 的 GPU 部分也有对应的编程语言，简称 GLSL。我们用它来编写运行在 GPU 上的着色器程序。着色器程序需要接收 CPU（WebGL 使用 JavaScript） 传递过来的数据，然后对这些数据进行流水线处理，最终显示在屏幕上。
+  3D 模型数据从诞生到最终显示在屏幕上，这期间经历了什么样的过程呢？大家可以想象一下流水线的生产过程，流水线按照既定的步骤对原料进行加工，当前步骤只对前一步骤的结果进行处理，然后将处理后的结果传递给下一步骤，最终将原材料生产成完整的产品。WebGL 的工作方式和流水线类似，也是按照流水线的方式将 3D 模型数据渲染到 2D 屏幕上的，业界把这种渲染方式称为图形管线或者渲染管线。
+
 1、一般情况下，最初的顶点坐标是相对于模型中心的，不能直接传递到着色器中，我们需要对顶点坐标按照一系列步骤执行模型转换，视图转换，投影转换，转换之后的坐标才是 WebGL 可接受的坐标，即裁剪空间坐标。我们把最终的变换矩阵和原始顶点坐标传递给 GPU，GPU 的渲染管线对它们执行流水线作业。
 
 2、GPU 渲染管线的主要处理过程如下：
@@ -11,7 +14,10 @@
 
 3、我们需要使用 JavaScript 声明 WebGL 运行的载体 canvas，设置 canvas 的初始大小，获取 WebGL 的上下文，对模型顶点的坐标、颜色、法向量等信息进行处理，并将这些处理好的数据传递给 GPU 。对于复杂的 WebGL 应用，顶点、纹理、光照等数据甚至需要从外部模型文件中获取，所以我们还需要用 JavaScript 解析加载模型数据。
 
-4、GLSL 的中文意思是 OpenGL 着色语言，英文全称是 OpenGL Shading Language，它是用来在 OpenGL 编写着色器程序的语言。着色器程序是在显卡（GPU）上运行的简短程序，代替了 GPU 固定渲染管线的一部分，使 GPU 渲染过程中的某些部分允许开发者通过编程进行控制。着色器程序允许我们通过编程来控制 GPU 的渲染。
+4、GLSL 的中文意思是 OpenGL 着色语言，英文全称是 OpenGL Shading Language，它是用来在 OpenGL 编写着色器程序的语言。着色器程序是在显卡（GPU）上运行的简短程序，代替了 GPU 固定渲染管线的一部分，使 GPU 渲染过程中的某些部分允许开发者通过编程进行控制。着色器程序允许我们通过编程来控制 GPU 的渲染。GLSL 本质上是在 C 语言的基础上，增加了一些数据类型和数学函数。
+  注意，GLSL 是强类型语言，定义变量时，数据类型和值一定要匹配正确，比如我们给浮点数 a 赋值 1，我们需要这样写：float a = 1.0; 如果用 float a = 1; 的话会报错。
+
+5、实际上，对顶点信息的变换操作既可以在 JavaScript 中进行，也可以在着色器程序中进行。通常我们都是在 JavaScript 中生成一个包含了所有变换的最终变换矩阵，然后将该矩阵传递给着色器，利用 GPU 并行计算优势对所有顶点执行变换。
 
 5、相关术语
   1、图元：WebGL 能够绘制的基本图形元素，包含三种：点、线段、三角形。
@@ -38,7 +44,7 @@
     count，代表绘制的点的数量。
   6、变量类型
     1、attribue 变量：只能在顶点着色器中定义。
-    2、uniform 变量：既可以在顶点着色器中定义，也可以在片元着色器中定义。
+    2、uniform 变量：既可以在顶点着色器中定义，也可以在片元着色器中定义。全局变量 (被 uniform 修饰的变量)
     3、最后一种变量类型 varing 变量：它用来从顶点着色器中往片元着色器传递数据。使用它我们可以在顶点着色器中声明一个变量并对其赋值，经过插值处理后，在片元着色器中取出插值后的值来使用。
   7、precision：精度设置限定符，使用此限定符设置完精度后，之后所有该数据类型都将沿用该精度，除非单独设置。
   8、运算符：向量的对应位置进行运算，得到一个新的向量。
@@ -65,6 +71,9 @@
     gl.bufferData：往缓冲区中复制数据。
     gl.enableVertexAttribArray：启用顶点属性。
     gl.vertexAttribPointer：设置顶点属性从缓冲区中读取数据的方式。
+    首先创建一个缓冲区（var buffer = gl.createBuffer()）；缓冲区创建好了，我们绑定该缓冲区为 WebGL 当前缓冲区 gl.ARRAY_BUFFER；绑定之后，对缓冲区绑定点的的任何操作都会基于该缓冲区（即buffer） 进行（gl.bindBuffer(gl.ARRAY_BUFFER, buffer)）；接下来往当前缓冲区（即上一步通过 bindBuffer 绑定的缓冲区）中写入数据（gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW)）。注意，着色器程序中的变量需要强类型数据，所以我们在往缓冲区写数据的时候，JS 的弱类型数组一定要用类型化数组转化一下。上面的 new Float32Array(positions)，目的就是将 JavaScript 中的弱类型数组转化为强类型数组。最后一个参数 gl.STATIC_DRAW 提示 WebGL 我们不会频繁改变缓冲区中的数据，WebGL 会根据这个参数做一些优化处理。
+    我们需要告诉 WebGL 如何从之前创建的缓冲区中获取数据，并且传递给顶点着色器中的 a_Position 属性。 那么，首先启用对应属性 a_Position（gl.enableVertexAttribArray(a_Position)）；接下来我们需要设置从缓冲区中取数据的方式（gl.vertexAttribPointer(
+   a_Position, size, type, normalize, stride, offset)）。需要注意的是，我们通过 gl.vertexAttribPointer 将属性绑定到了当前的缓冲区，即使之后我们使用 bindBuffer 绑定到其他缓冲区时，a_Position 也依然会从 buffer 这个缓冲区中获取数据。
   13、WebGL 除了提供 gl.drawArrays 按顶点绘制的方式以外，还提供了一种按照顶点索引进行绘制的方法：gl.drawElements，使用这种方式，可以避免重复定义顶点，进而节省存储空间。void gl.drawElements(mode, count, type, offset);
     mode：指定绘制图元的类型，是画点，还是画线，或者是画三角形。
     count：指定绘制图形的顶点个数。
